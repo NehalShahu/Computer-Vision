@@ -1,0 +1,61 @@
+import cv2
+import torch
+import time
+from ultralytics import YOLO
+from google.colab.patches import cv2_imshow
+
+# ---------------------------------------------------
+# 1. Check GPU
+# ---------------------------------------------------
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"[INFO] Using device: {device}")
+
+# ---------------------------------------------------
+# 2. Load YOLOv8 Model (nano version = fastest)
+# ---------------------------------------------------
+print("[INFO] Loading YOLOv8 model...")
+model = YOLO("yolov8n.pt")  # nano model for speed
+model.to(device)
+
+# ---------------------------------------------------
+# 3. Input / Output Paths
+# ---------------------------------------------------
+IMAGE_PATH = "/content/o1.jpg"
+OUTPUT_PATH = "/content/yolo_detected.jpg"
+
+# ---------------------------------------------------
+# 4. Load Image
+# ---------------------------------------------------
+image = cv2.imread(IMAGE_PATH)
+
+if image is None:
+    print("[ERROR] Image not found.")
+else:
+
+    # ---------------------------------------------------
+    # 5. Run Detection
+    # ---------------------------------------------------
+    start = time.time()
+
+    results = model(image)
+
+    end = time.time()
+
+    print(f"[INFO] Detection time: {round(end-start,3)} seconds")
+
+    # ---------------------------------------------------
+    # 6. Draw Bounding Boxes
+    # ---------------------------------------------------
+    annotated_frame = results[0].plot()
+
+    # ---------------------------------------------------
+    # 7. Save Output Image
+    # ---------------------------------------------------
+    cv2.imwrite(OUTPUT_PATH, annotated_frame)
+
+    print(f"[INFO] Output saved at: {OUTPUT_PATH}")
+
+    # ---------------------------------------------------
+    # 8. Display Result
+    # ---------------------------------------------------
+    cv2_imshow(annotated_frame)
