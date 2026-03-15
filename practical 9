@@ -1,0 +1,93 @@
+# =============================================
+# Emotion Detection Pipeline using DeepFace
+# Face Detection + Emotion Classification
+# =============================================
+
+!pip install imutils opencv-python tensorflow # Ensure these are installed
+
+import cv2
+import numpy as np
+import imutils
+from google.colab.patches import cv2_imshow
+from deepface import DeepFace # Import DeepFace
+
+# ---------------------------------------------
+# 1️⃣ Load Pre-trained Face Detector (SSD)
+# ---------------------------------------------
+# These are typically more stable links
+!wget -N https://raw.githubusercontent.com/opencv/opencv/master/samples/dnn/face_detector/deploy.prototxt
+!wget -N https://raw.githubusercontent.com/opencv/opencv_3rdparty/dnn_samples_face_detector_20170830/res10_300x300_ssd_iter_140000.caffemodel
+
+print("[INFO] Loading face detection model...")
+prototxt = "deploy.prototxt"
+model = "res10_300x300_ssd_iter_140000.caffemodel"
+face_net = cv2.dnn.readNetFromCaffe(prototxt, model)
+
+# ---------------------------------------------
+# 2️⃣ DeepFace will handle emotion classification
+# ---------------------------------------------
+print("[INFO] DeepFace will download its emotion model if not present...")
+# DeepFace automatically downloads its models (VGG-Face, Emotion, Age, Gender, Race) upon first use
+
+# ---------------------------------------------
+# 3️⃣ Load Image from File Path
+# ---------------------------------------------
+IMAGE_PATH = "/content/o2.jpg"   # Replace with your file
+image = cv2.imread(IMAGE_PATH)
+if image is None:
+    raise Exception("Image not found. Check the path!")
+
+image = imutils.resize(image, width=500)
+(h, w) = image.shape[:2]
+
+# ---------------------------------------------
+# 4️⃣ Detect Faces
+# ---------------------------------------------
+blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 1.0,
+                             (300, 300), (104.0, 177.0, 123.0))
+face_net.setInput(blob)
+detections = face_net.forward()
+
+# ---------------------------------------------
+# 5️⃣ Process Each Detected Face
+# ---------------------------------------------
+for i in range(0, detections.shape[2]):
+    confidence = detections[0, 0, i, 2]
+    if confidence > 0.5: # Face detection confidence threshold
+        box = detections[0, 0, i, 3:7] * np.array([w,h,w,h])
+        (startX, startY, endX, endY) = box.astype("int")
+
+        # Crop face ROI for DeepFace
+        face_roi = image[startY:endY, startX:endX]
+        if face_roi.size == 0:
+            continue
+
+        emotion_label = "N/A"
+        emotion_score = 0.0
+
+        try:
+            # Analyze face for emotions using DeepFace
+            # actions=['emotion'] specifies to only run emotion analysis
+            # enforce_detection=False allows DeepFace to process even if its own detector fails (we already have our detections)
+            demography = DeepFace.analyze(face_roi, actions=['emotion'], enforce_detection=False)
+
+            # DeepFace.analyze returns a list of dictionaries for each face found
+            if demography and len(demography) > 0:
+                main_emotion_data = demography[0]['emotion']
+                emotion_label = max(main_emotion_data, key=main_emotion_data.get)
+                emotion_score = main_emotion_data[emotion_label]
+
+        except Exception as e:
+            print(f"[WARNING] DeepFace analysis failed for a face: {e}")
+            emotion_label = "Error"
+
+        # Draw bounding box + label
+        text = f"{emotion_label}: {emotion_score:.1f}%"
+        y = startY - 10 if startY - 10 > 10 else startY + 10
+        cv2.rectangle(image, (startX,startY), (endX,endY), (0,255,0), 2)
+        cv2.putText(image, text, (startX,y), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0,255,0), 2)
+
+# ---------------------------------------------
+# 6️⃣ Display Output
+# ---------------------------------------------
+cv2_imshow(image)
