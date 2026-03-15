@@ -1,0 +1,27 @@
+!pip install ultralytics
+from ultralytics import YOLO
+import cv2
+from google.colab.patches import cv2_imshow
+
+# 1. Load a pre-trained model (n = nano, fast and lightweight)
+model = YOLO('yolo11n.pt')
+
+# 2. Run inference on an image
+# It handles resizing, normalization, and Non-Maximum Suppression automatically
+results = model('/content/yolo.jpg')
+
+# 3. Process results
+for r in results:
+    # This will show the image with boxes, labels, and confidence scores
+    im_array = r.plot()
+
+    # Save or Display
+    cv2_imshow(im_array)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+# Optional: Print out detected objects and coordinates
+for box in results[0].boxes:
+    print(f"Object ID: {box.cls}")
+    print(f"Coordinates: {box.xyxy}")
+    print(f"Confidence: {box.conf}")
