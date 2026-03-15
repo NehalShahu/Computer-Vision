@@ -1,0 +1,38 @@
+import cv2
+import matplotlib.pyplot as plt
+
+# 1. Load the image
+img = cv2.imread('/content/yolo.jpg')
+
+# Check if the image was loaded successfully
+if img is None:
+    print("Error: Image 'view.jpg' not found. Please make sure the image file is uploaded or in the correct path.")
+    # Optionally, you can exit or handle the error in another way
+    # For now, we'll stop execution if the image is not found
+    exit()
+
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+# 2. Initialize the SIFT detector
+sift = cv2.SIFT_create()
+
+# 3. Detect keypoints and compute descriptors
+# Keypoints: Locations of interest (corners, blobs)
+# Descriptors: Numerical 'fingerprints' of those locations
+keypoints, descriptors = sift.detectAndCompute(gray, None)
+
+# 4. Draw the keypoints on the image
+# We use DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS to show size and orientation
+img_with_keypoints = cv2.drawKeypoints(
+    gray,
+    keypoints,
+    img,
+    flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS
+)
+
+# 5. Display the result
+plt.figure(figsize=(10, 6))
+plt.imshow(cv2.cvtColor(img_with_keypoints, cv2.COLOR_BGR2RGB))
+plt.title(f"SIFT Keypoints Detected: {len(keypoints)}")
+plt.axis('off')
+plt.show()
