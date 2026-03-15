@@ -1,0 +1,66 @@
+import torch
+import torchvision
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
+from torchvision.transforms import functional as F
+from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
+import os
+
+def detect_objects_colab(image_path, threshold=0.5):
+    # 1. Check for GPU (highly recommended for Faster R-CNN)
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    print(f"Using device: {device}")
+
+    # 2. Load the pre-trained model and move to device
+    weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=weights)
+    model.to(device)
+    model.eval()
+
+    # 3. Get category names
+    categories = weights.meta["categories"]
+
+    # 4. Load and preprocess image
+    if not os.path.exists(image_path):
+        print(f"Error: File '{image_path}' not found. Please upload it to Colab.")
+        return None
+
+    img = Image.open(image_path).convert("RGB")
+    img_tensor = F.to_tensor(img).unsqueeze(0).to(device)
+
+    # 5. Inference
+    with torch.no_grad():
+        predictions = model(img_tensor)
+
+    # 6. Prepare for Visualization
+    # Move predictions back to CPU for processing
+    pred_scores = predictions[0]['scores'].cpu().numpy()
+    pred_boxes = predictions[0]['boxes'].cpu().numpy()
+    pred_labels = predictions[0]['labels'].cpu().numpy()
+
+    draw = ImageDraw.Draw(img)
+
+    # Loop through detections
+    for score, box, label_id in zip(pred_scores, pred_boxes, pred_labels):
+        if score > threshold:
+            # Draw rectangle
+            draw.rectangle([(box[0], box[1]), (box[2], box[3])], outline="lime", width=4)
+            # Annotate text
+            label_text = f"{categories[label_id]}: {100*score:.1f}%"
+            draw.text((box[0], box[1] - 15), label_text, fill="lime")
+
+    return img
+
+# --- Execution ---
+# 1. Upload an image to the left sidebar in Colab
+# 2. Replace 'your_image.jpg' with your filename
+IMAGE_NAME = "/traffic.jpg"
+
+result = detect_objects_colab(IMAGE_NAME, threshold=0.6)
+
+if result:
+    plt.figure(figsize=(16, 10))
+    plt.imshow(result)
+    plt.axis('off')
+    plt.title("Faster R-CNN Detections")
+    plt.show()
