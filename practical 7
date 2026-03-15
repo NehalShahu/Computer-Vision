@@ -1,0 +1,72 @@
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from IPython.display import clear_output
+
+# 1. Load a sample video or use your own path
+# If you don't have a video, this downloads a small sample
+!wget -q https://raw.githubusercontent.com/opencv/opencv/master/samples/data/vtest.avi -O motion_test.avi
+
+def run_optical_flow(video_path):
+    cap = cv2.VideoCapture(video_path)
+
+    # Read the first frame
+    ret, frame1 = cap.read()
+    if not ret:
+        print("Failed to read video")
+        return
+
+    prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
+
+    # Create an HSV image for visualization
+    # Hue = Direction, Value = Magnitude of motion
+    hsv = np.zeros_like(frame1)
+    hsv[..., 1] = 255  # Set saturation to maximum
+
+    count = 0
+    try:
+        while count < 50:  # Process 50 frames for demonstration
+            ret, frame2 = cap.read()
+            if not ret: break
+
+            next_frame = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
+
+            # 2. Calculate Dense Optical Flow (Farneback method)
+            flow = cv2.calcOpticalFlowFarneback(prvs, next_frame, None,
+                                                0.5, 3, 15, 3, 5, 1.2, 0)
+
+            # 3. Convert flow (x,y) to polar coordinates (magnitude, angle)
+            mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+
+            # 4. Map angle to Hue and magnitude to Value
+            hsv[..., 0] = ang * 180 / np.pi / 2
+            hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
+
+            # Convert HSV to BGR for display
+            rgb_flow = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+
+            # 5. Display in Colab
+            plt.figure(figsize=(10, 5))
+            plt.subplot(1, 2, 1)
+            plt.imshow(cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB))
+            plt.title("Original Frame")
+            plt.axis('off')
+
+            plt.subplot(1, 2, 2)
+            plt.imshow(rgb_flow)
+            plt.title("Optical Flow (Motion)")
+            plt.axis('off')
+
+            plt.show()
+            clear_output(wait=True)
+
+            prvs = next_frame
+            count += 1
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cap.release()
+
+# Run the estimation
+run_optical_flow("motion_test.avi")
